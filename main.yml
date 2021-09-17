@@ -1,0 +1,7 @@
+- name: Litecoind role 
+  gather_facts: true
+  hosts: localhost
+  user: root
+
+  roles:
+    - role: './roles/litecoind'

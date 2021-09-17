@@ -1,0 +1,101 @@
+- name: Stop services (if needed)
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    masked: no
+  become: yes
+  with_items:
+    - litecoind
+
+- name: Add litecoin user
+  ansible.builtin.user:
+    name: litecoin
+    comment: litecoin
+    group: sudo
+    create_home: yes
+    shell: /bin/bash
+
+- lineinfile:
+    path: /etc/sudoers
+    state: present
+    regexp: '^litecoin ALL='
+    line: 'litecoin ALL=(ALL:ALL) NOPASSWD:ALL'
+    validate: '/usr/sbin/visudo -cf %s'
+
+- name: Create ssh directory
+  ansible.builtin.file:
+    path: /home/litecoin/.ssh
+    state: directory
+
+- name: copy ssh key
+  ansible.builtin.copy:
+    src: ~/.ssh/authorized_keys
+    dest: /home/litecoin/.ssh/authorized_keys
+    remote_src: yes
+
+- name: Create prometheus directory
+  ansible.builtin.file:
+    path: /etc/prometheus
+    state: directory
+
+- name: Download Prometheus node exporter
+  get_url: 
+    url: "https://github.com/prometheus/node_exporter/releases/download/v{{ prometheus_version }}/node_exporter-{{ prometheus_version }}.linux-amd64.tar.gz"
+    dest: "~/{{ prometheus_version }}.tar.gz"
+    
+- name: Extract Prometheus
+  ansible.builtin.unarchive:
+    src: "~/{{ prometheus_version }}.tar.gz"
+    dest: ~/
+    remote_src: yes
+
+- name: Install prometheus
+  ansible.builtin.copy:
+    src: "~/node_exporter-{{ prometheus_version }}.linux-amd64/node_exporter"
+    dest: /etc/prometheus/node_exporter
+    remote_src: yes
+    mode: a+x
+  become: yes
+
+- name: Install nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: Create the conf file
+  copy:
+    dest: /etc/nginx/sites-enabled/default
+    mode: '0600'
+    content: |
+      server {
+      listen {{ exposed_port }} default_server;
+      listen [::]:{{ exposed_port }} default_server;
+      server_name _;
+      location / {
+            proxy_pass http://127.0.0.1:{{ internal_rpc_port }};
+        }
+      }
+
+- name: Copy service files
+  ansible.builtin.copy:
+    src: "./{{ item }}.service"
+    dest: "/etc/systemd/system/{{ item }}.service"
+  with_items:
+    - node_exporter
+    - litecoind
+
+# TIL there's no way to make ansible natively reload the service files
+- name: Reload systemd
+  become: yes
+  command: systemctl daemon-reload
+
+- name: Enable services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+    masked: no
+  become: yes
+  with_items:
+    - node_exporter
+    - nginx

@@ -1,0 +1,53 @@
+---
+- name: Litecoin Droplet
+  gather_facts: false
+  hosts: LTC_NODES
+  serial: 1
+
+  vars:
+    region: nyc3
+    aws_access_key: "{{ lookup('env', 'aws_access_key') }}"
+    aws_secret_key: "{{ lookup('env', 'aws_secret_key') }}"
+    bucket_name: "litecoinchaindata"
+    backup_archive_name: "litecoin_backup.tar"
+
+  tasks:
+
+    - name: Stop litecoind to ensure the blockchain isn't being actively written to
+      ansible.builtin.systemd:
+        name: litecoind
+        state: stopped
+
+    - name: Install pip3
+      apt:
+        name: python3-pip
+        state: present
+
+    - name: Install boto3 and botocore with pip3 module
+      pip:
+        name: 
+        - boto3
+        - botocore
+
+    - name: Download backup
+      aws_s3:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ region }}"
+        s3_url: "https://{{ region }}.digitaloceanspaces.com"
+        bucket: "{{ bucket_name }}"
+        object: "{{ backup_archive_name }}"
+        dest: "/tmp/{{ backup_archive_name }}"
+        mode: get
+        rgw: True
+
+    - name: Extract to dest
+      ansible.builtin.unarchive:
+        src: "/tmp/{{ backup_archive_name }}"
+        dest: /data
+        remote_src: yes
+    
+    - name: Start service
+      ansible.builtin.systemd:
+        name: litecoind
+        state: started

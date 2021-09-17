@@ -1,0 +1,54 @@
+# It is not recommended to modify this file in-place, because it will
+# be overwritten during package upgrades. If you want to add further
+# options or overwrite existing ones then use
+# $ systemctl edit litecoind.service
+# See "man systemd.service" for details.
+
+# Note that almost all daemon options could be specified in
+# /etc/litecoin/litecoin.conf, but keep in mind those explicitly
+# specified as arguments in ExecStart= will override those in the
+# config file.
+
+[Unit]
+Description=litecoin daemon
+Documentation=https://github.com/litecoin/litecoin/blob/master/doc/init.md
+
+# https://www.freedesktop.org/wiki/Software/systemd/NetworkTarget/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/litecoind \
+                            -conf=/home/litecoin/.litecoin/litecoin.conf \
+                            -datadir=/data
+
+# Make sure the config directory is readable by the service user
+PermissionsStartOnly=true
+# Process management
+####################
+
+# Type=forking
+# PIDFile=/run/litecoind/litecoind.pid
+# Restart=on-failure
+# TimeoutStartSec=infinity
+# TimeoutStopSec=600
+
+# Directory creation and permissions
+####################################
+
+# Run as litecoin:litecoin
+User=litecoin
+
+# Disallow the process and all of its children to gain
+# new privileges through execve().
+NoNewPrivileges=true
+
+# Use a new /dev namespace only populated with API pseudo devices
+# such as /dev/null, /dev/zero and /dev/random.
+PrivateDevices=true
+
+# Deny the creation of writable and executable memory mappings.
+MemoryDenyWriteExecute=true
+
+[Install]
+WantedBy=multi-user.target

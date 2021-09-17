@@ -1,0 +1,83 @@
+---
+- name: Litecoin Droplet
+  gather_facts: false
+  hosts: LTC_NODES
+
+  vars:
+    region: nyc3
+    aws_access_key: "{{ lookup('env', 'aws_access_key') }}"
+    aws_secret_key: "{{ lookup('env', 'aws_secret_key') }}"
+    bucket_name: "litecoinchaindata"
+    backup_archive_name: "litecoin_backup.tar"
+
+  tasks:
+    - name: Basic usage
+      debug:
+        msg: "{{ lookup('env', 'aws_access_key') }}"
+
+    - name: Basic usage
+      debug:
+        msg: "{{ lookup('env', 'aws_secret_key') }}"
+
+    - name: Stop litecoind to ensure the blockchain isn't being actively written to
+      ansible.builtin.systemd:
+        name: litecoind
+        state: stopped
+
+    - name: Install pip3
+      apt:
+        name: python3-pip
+        state: present
+
+    - name: Install boto3 and botocore with pip3 module
+      pip:
+        name: 
+        - boto3
+        - botocore
+
+    - name: Create an empty bucket
+      amazon.aws.aws_s3:
+        bucket: "{{ bucket_name }}"
+        mode: create
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        s3_url: "https://{{ region }}.digitaloceanspaces.com"
+      ignore_errors: yes
+
+    # Don't bother redoing backups < 24 hours old cause tar'ing the archive will take like a few hours anyway.
+    - find:
+        paths: /tmp
+        pattern: "{{ backup_archive_name }}"
+        age: -24h
+      register: last_backup
+
+    - name: Skip if < 24 hours old
+      debug:
+        msg: "Backup is less than 24 hours old, skipping.."
+      when: last_backup.matched > 0
+
+    # - name: Remove old backup if there
+    #   ansible.builtin.file:
+    #     path: "/tmp/{{ backup_archive_name }}"
+    #     state: absent
+    #   when: last_backup.matched < 1 
+
+    - name: tar the data dir
+      community.general.archive:
+        path: /data
+        dest: "/tmp/{{ backup_archive_name }}"
+      when: last_backup.matched < 1 
+
+    - name: Uploading backup
+      aws_s3:
+        aws_access_key: "{{ aws_access_key }}"
+        aws_secret_key: "{{ aws_secret_key }}"
+        region: "{{ region }}"
+        s3_url: "https://{{ region }}.digitaloceanspaces.com"
+        bucket: "{{ bucket_name }}"
+        object: "{{ backup_archive_name }}"
+        src: "/tmp/{{ backup_archive_name }}"
+        mode: put
+        rgw: True
+      when: last_backup.matched < 1 
+    

@@ -1,0 +1,69 @@
+- name: Download release
+  get_url:
+    url: "https://download.litecoin.org/litecoin-{{ litecoin_version }}/linux/litecoin-0.18.1-x86_64-linux-gnu.tar.gz"
+    dest: "~/litecoin-{{ litecoin_version }}-x86_64-linux-gnu.tar.gz"
+
+- name: Create the litecoin directory
+  ansible.builtin.file:
+    path: ~/litecoin
+    state: directory
+
+- name: Extract the archive
+  ansible.builtin.unarchive:
+    src: "~/litecoin-{{ litecoin_version }}-x86_64-linux-gnu.tar.gz"
+    dest: ~/litecoin
+    remote_src: yes
+
+- name: Create the litecoin config directory
+  ansible.builtin.file:
+    path: ~/.litecoin
+    state: directory
+
+- name: Create the conf file
+  copy:
+    dest: ~/.litecoin/litecoin.conf
+    mode: '0600'
+    content: |
+      server=1
+      daemon=0
+      rpcuser={{ rpcuser }}
+      rpcpassword={{ rpcpassword }}
+      disablewallet=1
+      dbcache={{ dbcache }}
+      rpcallowip={{ rpcallowedips }}
+      rpcport={{ internal_rpc_port }}
+      rpcthreads={{ ansible_processor_vcpus * 8}}
+      txindex=1
+
+- name: Create the data dir
+  ansible.builtin.file:
+    path: /data
+    state: directory
+    owner: litecoin
+  become: yes
+
+- name: Find the proper exe
+  find:
+    paths: ~/litecoin
+    recurse: yes
+    patterns: 'litecoind'
+  register: ltcd
+
+# Yeah this is prolly kinda hacky but it should always work
+- name: Install litecoind
+  ansible.builtin.copy:
+    src: "{{ ltcd.files[0].path }}"
+    dest: /usr/bin/litecoind
+    remote_src: yes
+    mode: a+x
+  become: yes
+
+- name: Ensure service is started/restarted if we just configured it
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+    masked: no
+  become: yes
+  with_items:
+    - litecoind

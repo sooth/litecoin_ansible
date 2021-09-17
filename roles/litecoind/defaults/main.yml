@@ -1,0 +1,27 @@
+prometheus_version: "1.2.2"
+litecoin_version: "0.18.1"
+
+#litecoin.conf settings
+dbcache: 4096
+rpcallowedips: 0.0.0.0/0
+exposed_port: 80
+internal_rpc_port: 8080
+rpcuser: demo
+rpcpassword: tester
+
+# Access keys
+aws_access_key: "{{ lookup('env', 'aws_access_key') }}"
+aws_secret_key: "{{ lookup('env', 'aws_secret_key') }}"
+digital_ocean_token: "{{ lookup('env', 'digital_ocean_token') }}"
+
+# backup settings
+bucket_name: "litecoinchaindata"
+backup_archive_name: "litecoin_backup.tar"
+
+# VM settings
+droplet_size: gd-8vcpu-32gb
+region: nyc3
+droplet_region: nyc3
+droplet_image: ubuntu-18-04-x64
+droplet_name: ltc-beta-1
+target_group: LTC_NODES

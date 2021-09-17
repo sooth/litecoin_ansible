@@ -1,0 +1,16 @@
+# roles/litecoind/tasks/main.yml
+# - name: Deploy New Droplet
+#   import_tasks: DeployNewDroplet.yml
+
+- name: Determine what we just deployed
+  shell: "../doctl compute droplet get {{ droplet_name }} --access-token {{ digital_ocean_token }} --output json | jq -r '.[].networks.v4[] | select(.type==\"public\").ip_address'"
+  register: ip_address
+
+- name: Configure the initial stuff
+  import_tasks: ConfigureNode.yml
+  delegate_to: "{{ ip_address.stdout }}"
+
+- name: Configure the litecoin node
+  import_tasks: ConfigureSoftware.yml
+  become: litecoin
+  delegate_to: "{{ ip_address.stdout }}"
