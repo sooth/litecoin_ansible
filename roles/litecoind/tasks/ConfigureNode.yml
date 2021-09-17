@@ -68,10 +68,11 @@
     mode: '0600'
     content: |
       server {
-      listen {{ exposed_port }} default_server;
-      listen [::]:{{ exposed_port }} default_server;
-      server_name _;
-      location / {
+        allow  {{ rpcallowedips }};
+        listen {{ exposed_port }} default_server;
+        listen [::]:{{ exposed_port }} default_server;
+        server_name _;
+        location / {
             proxy_pass http://127.0.0.1:{{ internal_rpc_port }};
         }
       }

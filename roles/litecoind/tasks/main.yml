@@ -1,6 +1,6 @@
 # roles/litecoind/tasks/main.yml
-# - name: Deploy New Droplet
-#   import_tasks: DeployNewDroplet.yml
+- name: Deploy New Droplet
+  import_tasks: DeployNewDroplet.yml
 
 - name: Determine what we just deployed
   shell: "../doctl compute droplet get {{ droplet_name }} --access-token {{ digital_ocean_token }} --output json | jq -r '.[].networks.v4[] | select(.type==\"public\").ip_address'"

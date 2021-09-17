@@ -1,6 +1,6 @@
 - name: Litecoind role 
   gather_facts: true
-  hosts: localhost
+  hosts: LTC_NODES
   user: root
 
   roles:
